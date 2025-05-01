@@ -38,6 +38,10 @@ func setupCommands() []*discordgo.ApplicationCommand {
 				},
 			},
 		},
+		{
+			Name:        "diagnose",
+			Description: "Diagnostica problemas com o servidor Minecraft",
+		},
 	}
 }
 
@@ -53,6 +57,7 @@ func (bot *Bot) onInteraction(s *discordgo.Session, i *discordgo.InteractionCrea
 		"status":    bot.handleStatusCommand,
 		"perguntar": bot.handlePerguntarCommand,
 		"command":   bot.handleServerCommand,
+		"diagnose":  bot.handleDiagnoseCommand,
 	}
 
 	if handler, exists := cmdHandlers[cmdName]; exists {

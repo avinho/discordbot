@@ -40,7 +40,22 @@ func GetOnlinePlayers(cfg *config.Config) (int, []string, error) {
 
 // ExecuteServerCommand executa um comando no servidor Minecraft via screen
 func ExecuteServerCommand(command string) error {
+	// Primeiro, verifique se a sessão screen existe
+	checkCmd := exec.Command("bash", "-c", "screen -ls | grep minecraft")
+	checkOutput, err := checkCmd.CombinedOutput()
+
+	if err != nil {
+		return fmt.Errorf("sessão screen 'minecraft' não encontrada: %v - %s", err, string(checkOutput))
+	}
+
+	// Execute o comando na sessão screen
 	screenCmd := fmt.Sprintf("screen -S minecraft -X stuff '%s\n'", command)
 	cmd := exec.Command("bash", "-c", screenCmd)
-	return cmd.Run()
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		return fmt.Errorf("falha ao executar comando: %v - %s", err, string(output))
+	}
+
+	return nil
 }

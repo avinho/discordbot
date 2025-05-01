@@ -5,6 +5,7 @@ import (
 	"discordbot/minecraft"
 	"fmt"
 	"log"
+	"os/exec"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/generative-ai-go/genai"
@@ -140,6 +141,38 @@ func (bot *Bot) handleServerCommand(s *discordgo.Session, i *discordgo.Interacti
 		msg = fmt.Sprintf("❌ Erro ao executar comando: %v", err)
 	} else {
 		msg = fmt.Sprintf("✅ Comando executado: %s", command)
+	}
+
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &msg,
+	})
+}
+
+// No arquivo handlers.go, adicione este handler
+func (bot *Bot) handleDiagnoseCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !hasAdminPermission(i, bot.Config.AdminUserID) {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "❌ Você não tem permissão para executar diagnósticos",
+			},
+		})
+		return
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
+	// Verifique as sessões screen
+	cmd := exec.Command("bash", "-c", "screen -ls")
+	output, err := cmd.CombinedOutput()
+
+	var msg string
+	if err != nil {
+		msg = fmt.Sprintf("❌ Erro ao verificar sessões screen: %v", err)
+	} else {
+		msg = fmt.Sprintf("**Diagnóstico do Servidor** 🔍\n```\n%s\n```", string(output))
 	}
 
 	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
