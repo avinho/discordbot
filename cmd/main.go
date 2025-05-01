@@ -77,13 +77,6 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
-
-	for _, cmd := range registeredCommands {
-		err := dg.ApplicationCommandDelete(dg.State.User.ID, "", cmd.ID)
-		if err != nil {
-			log.Printf("Erro ao remover comando %s: %v", cmd.Name, err)
-		}
-	}
 }
 
 func onReady(s *discordgo.Session, r *discordgo.Ready) {
