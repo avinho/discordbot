@@ -2,6 +2,8 @@ services:
   bot:
     build: .
     container_name: bot
+    volumes:
+      - /var/run/screen:/var/run/screen
     env_file:
       - .env
     restart: unless-stopped

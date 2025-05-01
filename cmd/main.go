@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/generative-ai-go/genai"
@@ -36,6 +38,18 @@ var (
 					Type:        discordgo.ApplicationCommandOptionString,
 					Name:        "pergunta",
 					Description: "Sua pergunta sobre Minecraft",
+					Required:    true,
+				},
+			},
+		},
+		{
+			Name:        "command",
+			Description: "Executa um comando no servidor Minecraft",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "comando",
+					Description: "Comando a ser executado no servidor Minecraft",
 					Required:    true,
 				},
 			},
@@ -82,6 +96,28 @@ func main() {
 func onReady(s *discordgo.Session, r *discordgo.Ready) {
 	s.UpdateGameStatus(0, "/online para ver jogadores")
 	fmt.Println("Bot pronto como", s.State.User.String())
+
+	stats, err := mcstatus.GetJavaStatus(server, portStringToInt())
+	count := 0
+	max := 0
+	if err != nil {
+		log.Printf("Erro ao obter status do servidor: %v", err)
+	}
+
+	if stats.Online {
+		count = stats.Players.Online
+		max = stats.Players.Max
+	}
+
+	// goroutine para atualizar o status a cada 2 minutos
+	go func() {
+		ticker := time.NewTicker(2 * time.Minute)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			s.UpdateGameStatus(0, fmt.Sprintf("/online para ver jogadores. %d/%d", count, max))
+		}
+	}()
 }
 
 func onInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -96,7 +132,16 @@ func onInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		handleStatusCommand(s, i)
 	case "perguntar":
 		handlePerguntarCommand(s, i)
+	case "command":
+		handleServerCommand(s, i)
 	}
+}
+
+func executeServerCommand(command string) error {
+	screenCmd := fmt.Sprintf("screen -S minecraft -X stuff '%s\n'", command)
+
+	cmd := exec.Command("bash", "-c", screenCmd)
+	return cmd.Run()
 }
 
 func initGemini() (*genai.Client, error) {
@@ -244,4 +289,41 @@ func portStringToInt() uint16 {
 		p = 46922
 	}
 	return p
+}
+
+func handleServerCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !hasAdminPermission(i) {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "❌ Você não tem permissão para executar comandos no servidor",
+			},
+		})
+		return
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
+	// Pega o comando dos argumentos
+	options := i.ApplicationCommandData().Options
+	command := options[0].StringValue()
+
+	err := executeServerCommand(command)
+
+	var msg string
+	if err != nil {
+		msg = fmt.Sprintf("❌ Erro ao executar comando: %v", err)
+	} else {
+		msg = fmt.Sprintf("✅ Comando executado: %s", command)
+	}
+
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &msg,
+	})
+}
+
+func hasAdminPermission(i *discordgo.InteractionCreate) bool {
+	return i.User.ID == "320369059621502997"
 }
