@@ -5,7 +5,7 @@ import (
 	"discordbot/minecraft"
 	"fmt"
 	"log"
-	"os/exec"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/google/generative-ai-go/genai"
@@ -134,7 +134,7 @@ func (bot *Bot) handleServerCommand(s *discordgo.Session, i *discordgo.Interacti
 	options := i.ApplicationCommandData().Options
 	command := options[0].StringValue()
 
-	err := minecraft.ExecuteServerCommand(command)
+	err := minecraft.ExecuteServerCommand(command, bot.Config)
 
 	var msg string
 	if err != nil {
@@ -148,7 +148,37 @@ func (bot *Bot) handleServerCommand(s *discordgo.Session, i *discordgo.Interacti
 	})
 }
 
-// No arquivo handlers.go, adicione este handler
+// handleSessionsCommand processa o comando /sessions
+func (bot *Bot) handleSessionsCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	if !hasAdminPermission(i, bot.Config.AdminUserID) {
+		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "❌ Você não tem permissão para listar sessões",
+			},
+		})
+		return
+	}
+
+	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	})
+
+	sessions, err := minecraft.ListScreenSessions(bot.Config)
+
+	var msg string
+	if err != nil {
+		msg = fmt.Sprintf("❌ Erro ao listar sessões screen: %v", err)
+	} else {
+		msg = fmt.Sprintf("**Sessões Screen Disponíveis** 📋\n```\n%s\n```", sessions)
+	}
+
+	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: &msg,
+	})
+}
+
+// handleDiagnoseCommand processa o comando /diagnose
 func (bot *Bot) handleDiagnoseCommand(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if !hasAdminPermission(i, bot.Config.AdminUserID) {
 		s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -164,18 +194,61 @@ func (bot *Bot) handleDiagnoseCommand(s *discordgo.Session, i *discordgo.Interac
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 	})
 
-	// Verifique as sessões screen
-	cmd := exec.Command("bash", "-c", "screen -ls")
-	output, err := cmd.CombinedOutput()
+	// Colete informações de diagnóstico
+	var diagnosticInfo strings.Builder
 
-	var msg string
+	// 1. Verifique as sessões screen
+	screenSessions, err := minecraft.ListScreenSessions(bot.Config)
 	if err != nil {
-		msg = fmt.Sprintf("❌ Erro ao verificar sessões screen: %v", err)
+		diagnosticInfo.WriteString(fmt.Sprintf("❌ Erro ao verificar sessões screen: %v\n", err))
 	} else {
-		msg = fmt.Sprintf("**Diagnóstico do Servidor** 🔍\n```\n%s\n```", string(output))
+		diagnosticInfo.WriteString("**Sessões Screen Disponíveis:**\n```\n")
+		diagnosticInfo.WriteString(screenSessions)
+		diagnosticInfo.WriteString("```\n")
 	}
 
+	// 2. Verifique o processo do servidor Minecraft
+	psOutput, err := minecraft.ExecuteHostCommand("ps aux | grep -i minecraft | grep -v grep", bot.Config)
+	if err != nil {
+		diagnosticInfo.WriteString(fmt.Sprintf("❌ Erro ao verificar processos: %v\n", err))
+	} else {
+		diagnosticInfo.WriteString("**Processos Minecraft:**\n```\n")
+		if psOutput != "" {
+			diagnosticInfo.WriteString(psOutput)
+		} else {
+			diagnosticInfo.WriteString("Nenhum processo Minecraft encontrado")
+		}
+		diagnosticInfo.WriteString("```\n")
+	}
+
+	// 3. Verifique o status da conexão com o servidor
+	serverStatus, err := minecraft.GetServerStatus(bot.Config)
+	if err != nil {
+		diagnosticInfo.WriteString(fmt.Sprintf("❌ Erro ao conectar ao servidor: %v\n", err))
+	} else {
+		diagnosticInfo.WriteString(fmt.Sprintf("**Status do Servidor:** %s\n",
+			func() string {
+				if serverStatus.Online {
+					return "✅ Online"
+				}
+				return "❌ Offline"
+			}()))
+	}
+
+	// 4. Verifique a configuração SSH
+	diagnosticInfo.WriteString(fmt.Sprintf("**Configuração SSH:**\n```\n"+
+		"Usuário: %s\n"+
+		"Host: %s\n"+
+		"Porta: %s\n"+
+		"Sessão Screen: %s\n"+
+		"```\n",
+		bot.Config.SSHUser,
+		bot.Config.SSHHost,
+		bot.Config.SSHPort,
+		bot.Config.ScreenName))
+
+	diagString := diagnosticInfo.String()
 	s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content: &msg,
+		Content: &diagString,
 	})
 }

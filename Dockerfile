@@ -14,7 +14,7 @@ FROM alpine:latest
 
 WORKDIR /app
 
-RUN apk add --no-cache screen bash
+RUN apk add --no-cache openssh-client bash
 
 COPY --from=build /app/bot .
 

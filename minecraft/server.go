@@ -1,6 +1,7 @@
 package minecraft
 
 import (
+	"bytes"
 	"discordbot/config"
 	"fmt"
 	"os/exec"
@@ -11,7 +12,7 @@ import (
 // GetServerStatus obtém o status do servidor Minecraft
 func GetServerStatus(cfg *config.Config) (*mcstatus.JavaStatusResponse, error) {
 	if cfg.ServerIP == "" {
-		return nil, fmt.Errorf("SERVER_IP não definido")
+		return nil, fmt.Errorf("❌ SERVER_IP não definido")
 	}
 
 	port := config.ParsePort(cfg.ServerPort, cfg.DefaultPort)
@@ -21,7 +22,7 @@ func GetServerStatus(cfg *config.Config) (*mcstatus.JavaStatusResponse, error) {
 // GetOnlinePlayers obtém a lista de jogadores online
 func GetOnlinePlayers(cfg *config.Config) (int, []string, error) {
 	if cfg.ServerIP == "" {
-		return 0, nil, fmt.Errorf("SERVER_IP não definido")
+		return 0, nil, fmt.Errorf("❌ SERVER_IP não definido")
 	}
 
 	port := config.ParsePort(cfg.ServerPort, cfg.DefaultPort)
@@ -38,24 +39,58 @@ func GetOnlinePlayers(cfg *config.Config) (int, []string, error) {
 	return srv.Players.Online, playerNames, nil
 }
 
-// ExecuteServerCommand executa um comando no servidor Minecraft via screen
-func ExecuteServerCommand(command string) error {
-	// Primeiro, verifique se a sessão screen existe
-	checkCmd := exec.Command("bash", "-c", "screen -ls | grep minecraft")
-	checkOutput, err := checkCmd.CombinedOutput()
+// ExecuteServerCommand executa um comando no servidor Minecraft via SSH e screen
+func ExecuteServerCommand(command string, cfg *config.Config) error {
+	// Construa o comando SSH
+	sshCmd := fmt.Sprintf("ssh -p %s %s@%s 'screen -S %s -X stuff \"%s\n\"'",
+		cfg.SSHPort, cfg.SSHUser, cfg.SSHHost, cfg.ScreenName, command)
 
-	if err != nil {
-		return fmt.Errorf("sessão screen 'minecraft' não encontrada: %v - %s", err, string(checkOutput))
-	}
+	// Execute o comando
+	cmd := exec.Command("bash", "-c", sshCmd)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
 
-	// Execute o comando na sessão screen
-	screenCmd := fmt.Sprintf("screen -S minecraft -X stuff '%s\n'", command)
-	cmd := exec.Command("bash", "-c", screenCmd)
-	output, err := cmd.CombinedOutput()
-
-	if err != nil {
-		return fmt.Errorf("falha ao executar comando: %v - %s", err, string(output))
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("falha ao executar comando via SSH: %v - %s", err, stderr.String())
 	}
 
 	return nil
+}
+
+// ListScreenSessions lista as sessões screen disponíveis no host
+func ListScreenSessions(cfg *config.Config) (string, error) {
+	// Construa o comando SSH
+	sshCmd := fmt.Sprintf("ssh -p %s %s@%s 'screen -ls'",
+		cfg.SSHPort, cfg.SSHUser, cfg.SSHHost)
+
+	// Execute o comando
+	cmd := exec.Command("bash", "-c", sshCmd)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("falha ao listar sessões screen via SSH: %v - %s", err, stderr.String())
+	}
+
+	return stdout.String(), nil
+}
+
+// ExecuteHostCommand executa um comando qualquer no host via SSH
+func ExecuteHostCommand(command string, cfg *config.Config) (string, error) {
+	// Construa o comando SSH
+	sshCmd := fmt.Sprintf("ssh -p %s %s@%s '%s'",
+		cfg.SSHPort, cfg.SSHUser, cfg.SSHHost, command)
+
+	// Execute o comando
+	cmd := exec.Command("bash", "-c", sshCmd)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("falha ao executar comando via SSH: %v - %s", err, stderr.String())
+	}
+
+	return stdout.String(), nil
 }

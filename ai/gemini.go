@@ -12,7 +12,7 @@ func InitGemini(apiKey string) (*genai.Client, error) {
 	ctx := context.Background()
 	client, err := genai.NewClient(ctx, option.WithAPIKey(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("erro ao inicializar Gemini: %v", err)
+		return nil, fmt.Errorf("❌ Erro ao inicializar Gemini: %v", err)
 	}
 	return client, nil
 }

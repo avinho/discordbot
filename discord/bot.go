@@ -24,7 +24,7 @@ func NewBot(cfg *config.Config) (*Bot, error) {
 	dg, err := discordgo.New("Bot " + cfg.DiscordToken)
 
 	if err != nil {
-		return nil, fmt.Errorf("erro ao criar sessão do Discord: %v", err)
+		return nil, fmt.Errorf("❌ Erro ao criar sessão do Discord: %v", err)
 	}
 
 	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsGuilds
@@ -33,7 +33,7 @@ func NewBot(cfg *config.Config) (*Bot, error) {
 	if cfg.GeminiAPIKey != "" {
 		aiClient, err = ai.InitGemini(cfg.GeminiAPIKey)
 		if err != nil {
-			log.Printf("Aviso: não foi possível inicializar o cliente Gemini: %v", err)
+			log.Printf("⚠️ Aviso: não foi possível inicializar o cliente Gemini: %v", err)
 		}
 	}
 
@@ -56,12 +56,12 @@ func (bot *Bot) Start() error {
 
 	// Abra a conexão
 	if err := bot.Session.Open(); err != nil {
-		return fmt.Errorf("erro ao abrir conexão com Discord: %v", err)
+		return fmt.Errorf("❌ Erro ao abrir conexão com Discord: %v", err)
 	}
 
 	// Registre os comandos
 	if err := bot.registerCommands(); err != nil {
-		return fmt.Errorf("erro ao registrar comandos: %v", err)
+		return fmt.Errorf("❌ Erro ao registrar comandos: %v", err)
 	}
 
 	return nil
@@ -82,10 +82,10 @@ func (bot *Bot) registerCommands() error {
 	for i, cmd := range bot.Commands {
 		registeredCmd, err := bot.Session.ApplicationCommandCreate(bot.Session.State.User.ID, "", cmd)
 		if err != nil {
-			return fmt.Errorf("erro ao registrar comando %s: %v", cmd.Name, err)
+			return fmt.Errorf("❌ Erro ao registrar comando %s: %v", cmd.Name, err)
 		}
 		bot.Registered[i] = registeredCmd
-		log.Println("Comando registrado:", registeredCmd.Name)
+		log.Println("🤖 Comando registrado:", registeredCmd.Name)
 	}
 
 	return nil
@@ -94,7 +94,7 @@ func (bot *Bot) registerCommands() error {
 // onReady é chamado quando o bot está pronto
 func (bot *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
 	s.UpdateGameStatus(0, "/online para ver jogadores")
-	log.Println("Bot pronto como", s.State.User.String())
+	log.Println("🤖 Bot pronto como", s.State.User.String())
 
 	// Obtenha status inicial do servidor
 	count, max := 0, 0
