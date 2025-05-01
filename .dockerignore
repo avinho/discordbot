@@ -1,0 +1,58 @@
+# Git
+.git
+.gitignore
+
+# Docker
+.docker
+.dockerignore
+Dockerfile
+docker-compose.yaml
+docker-compose.yml
+
+# Environment variables
+.env
+.env.*
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test files
+*.test
+*.out
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Documentation
+README.md
+LICENSE
+*.md
+
+# Dependency directories (uncomment if you're not using Go modules)
+# vendor/
