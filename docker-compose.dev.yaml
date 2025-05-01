@@ -1,6 +1,6 @@
 services:
   discordbot:
-    image: ghcr.io/avinho/discordbot:latest
+    build: .
     container_name: discordbot
     deploy:
       resources:
